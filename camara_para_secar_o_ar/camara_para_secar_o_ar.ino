@@ -23,18 +23,18 @@ const uint8_t POS_PIN_1 = 6;
 const uint8_t AQUECEDOR = 5;
 
 // --- PINAGEM DA PLACA DE BOTÕES ---
-const uint8_t PIN_ENC_A = 50;   
-const uint8_t PIN_ENC_B = 52;   
-const uint8_t PIN_SW_ENC = 53;  
-const uint8_t PIN_BT1 = A14;     
-const uint8_t PIN_BT2 = A15;     
+const uint8_t PIN_ENC_A = 50;
+const uint8_t PIN_ENC_B = 52;
+const uint8_t PIN_SW_ENC = 53;
+const uint8_t PIN_BT1 = A14;
+const uint8_t PIN_BT2 = A15;
 
 enum TelaEstado : uint8_t {
-  TELA_INICIAL,                
-  TELA_TEMPORIZADOR,           
-  TELA_TEMPORIZADOR_CONTANDO,  
-  TELA_CONFIGURACAO,           
-  TELA_AJUSTE_TEMP,            
+  TELA_INICIAL,
+  TELA_TEMPORIZADOR,
+  TELA_TEMPORIZADOR_CONTANDO,
+  TELA_CONFIGURACAO,
+  TELA_AJUSTE_TEMP,
 };
 
 struct ListaErros {
@@ -42,7 +42,9 @@ struct ListaErros {
   size_t capacidade = 0;
   size_t total = 0;
 
-  ~ListaErros() { delete[] itens; }
+  ~ListaErros() {
+    delete[] itens;
+  }
 
   void push_back(const String& msg) {
     if (total >= capacidade) {
@@ -58,12 +60,22 @@ struct ListaErros {
     itens[total++] = msg;
   }
 
-  size_t size() const { return total; }
-  bool empty() const { return total == 0; }
-  void clear() { total = 0; }
+  size_t size() const {
+    return total;
+  }
+  bool empty() const {
+    return total == 0;
+  }
+  void clear() {
+    total = 0;
+  }
 
-  String& operator[](size_t index) { return itens[index]; }
-  const String& operator[](size_t index) const { return itens[index]; }
+  String& operator[](size_t index) {
+    return itens[index];
+  }
+  const String& operator[](size_t index) const {
+    return itens[index];
+  }
 };
 
 ListaErros listaErros;
@@ -71,20 +83,20 @@ TelaEstado telaAtual = TELA_INICIAL;
 const int ENDERECO_EEPROM = 0;
 
 struct ConfigSistema {
-  float R_REF;                    
-  float NTC_NOMINAL;              
-  float TEMP_NOMINAL;             
-  float BETA;                     
-  float TENSAO_REF;               
-  uint8_t HISTERESE;              
-  float TEMP_DESEJADA;            
-  float HUMIDADE_DE_ATIVACAO;     
-  uint8_t TEMPORIZADOR_HORAS;     
-  uint8_t TEMPORIZADOR_MINUTOS;   
-  uint8_t TEMPORIZADOR_SEGUNDOS;  
-  bool IS_CELCIUS;                
-  uint32_t DEBOUNCER_TIME;        
-  uint32_t assinatura;            
+  float R_REF;
+  float NTC_NOMINAL;
+  float TEMP_NOMINAL;
+  float BETA;
+  float TENSAO_REF;
+  uint8_t HISTERESE;
+  float TEMP_DESEJADA;
+  float HUMIDADE_DE_ATIVACAO;
+  uint8_t TEMPORIZADOR_HORAS;
+  uint8_t TEMPORIZADOR_MINUTOS;
+  uint8_t TEMPORIZADOR_SEGUNDOS;
+  bool IS_CELCIUS;
+  uint32_t DEBOUNCER_TIME;
+  uint32_t assinatura;
 };
 
 ConfigSistema cfgvar = ConfigSistema();
@@ -94,14 +106,14 @@ void salvarConfiguracoes();
 void carregarValoresPadrao();
 
 // Variaveis de ambiente
-bool AQUECEDOR_ATIVADO = false;  
-float TEMP_AMBIENTE = 0;         
-float TEMP_AQUECEDOR = 0;        
-float TEMP_AH10 = 0;             
-float HUMIDADE_ATUAL = 0;        
+bool AQUECEDOR_ATIVADO = false;
+float TEMP_AMBIENTE = 0;
+float TEMP_AQUECEDOR = 0;
+float TEMP_AH10 = 0;
+float HUMIDADE_ATUAL = 0;
 
 // Controle do Temporizador
-bool PAUSE = false;  
+bool PAUSE = false;
 uint8_t HR = 0;
 uint8_t MIN = 0;
 uint8_t SEG = 0;
@@ -109,12 +121,12 @@ uint32_t tempoTotalSegundos = 0;
 unsigned long ultimoSegundoTimer = 0;
 
 // Estado de edição do temporizador (0: HH, 1: MM, 2: SS)
-uint8_t focadoTempo = 0; 
+uint8_t focadoTempo = 0;
 
 // Estado do Carrossel do Menu de Configuração
 uint8_t itemConfigSelecionado = 0;
 bool modoEdicaoConfig = false;
-const uint8_t TOTAL_ITENS_CONFIG = 5;
+const uint8_t TOTAL_ITENS_CONFIG = 6;
 
 // Variáveis dos botões e encoder (tratados em loop)
 volatile int8_t deltaEncoder = 0;
@@ -166,7 +178,7 @@ float lerADC(int pino) {
   long soma = 0;
   if (pino == PINO_A1) digitalWrite(POS_PIN_1, HIGH);
   else digitalWrite(POS_PIN_0, HIGH);
-  
+
   delay(1);
   for (int i = 0; i < 2; i++) {
     soma += analogRead(pino);
@@ -203,7 +215,6 @@ void processarInputs() {
   switch (telaAtual) {
     case TELA_INICIAL:
       if (btn1) {
-        // Carrega valores padrão da EEPROM ao entrar na tela de tempo
         HR = cfgvar.TEMPORIZADOR_HORAS;
         MIN = cfgvar.TEMPORIZADOR_MINUTOS;
         SEG = cfgvar.TEMPORIZADOR_SEGUNDOS;
@@ -220,20 +231,13 @@ void processarInputs() {
       if (btn1) {
         telaAtual = TELA_INICIAL;
       } else if (btn2) {
-        // Inicia a contagem
         tempoTotalSegundos = ((uint32_t)HR * 3600) + ((uint32_t)MIN * 60) + SEG;
         if (tempoTotalSegundos > 0) {
           PAUSE = false;
           ultimoSegundoTimer = millis();
-          cfgvar.TEMPORIZADOR_HORAS = HR;
-          cfgvar.TEMPORIZADOR_MINUTOS = MIN;
-          cfgvar.TEMPORIZADOR_SEGUNDOS = SEG;
-          salvarConfiguracoes();
           telaAtual = TELA_TEMPORIZADOR_CONTANDO;
-
         }
       } else if (btnEnc) {
-        // Alterna o foco: 0 (HH) -> 1 (MM) -> 2 (SS)
         focadoTempo = (focadoTempo + 1) % 3;
       } else if (encMove != 0) {
         if (focadoTempo == 0) {
@@ -251,12 +255,10 @@ void processarInputs() {
 
     case TELA_TEMPORIZADOR_CONTANDO:
       if (btn1) {
-        // Cancela processo
         AQUECEDOR_ATIVADO = false;
         digitalWrite(AQUECEDOR, LOW);
         telaAtual = TELA_INICIAL;
       } else if (btn2) {
-        // Pausa / Retoma
         PAUSE = !PAUSE;
         if (PAUSE) {
           AQUECEDOR_ATIVADO = false;
@@ -265,50 +267,63 @@ void processarInputs() {
       }
       break;
 
-    case TELA_CONFIGURACAO:
+   case TELA_CONFIGURACAO:
       if (btn1) {
         if (modoEdicaoConfig) {
-          modoEdicaoConfig = false; // Cancela edição do parâmetro
+          modoEdicaoConfig = false; // Cancela edição do item selecionado
         } else {
-          salvarConfiguracoes(); // Salva alterações ao sair
+          salvarConfiguracoes(); // Salva na EEPROM ao sair por B1
           telaAtual = TELA_INICIAL;
         }
+      } else if (btn2) {
+        // Recarrega as configurações salvas na EEPROM (descarta alterações não salvas)
+        carregarConfiguracoes();
+        modoEdicaoConfig = false;
+        telaAtual = TELA_INICIAL;
       } else if (btnEnc) {
-        modoEdicaoConfig = !modoEdicaoConfig;
+        if (itemConfigSelecionado == 5) {
+          telaAtual = TELA_AJUSTE_TEMP;
+          focadoTempo = 0; // Reutilizado na tela de calibração NTC
+          modoEdicaoConfig = false;
+        } else {
+          modoEdicaoConfig = !modoEdicaoConfig;
+        }
       } else if (encMove != 0) {
         if (!modoEdicaoConfig) {
-          // Navegação no Carrossel
           int novoItem = itemConfigSelecionado + encMove;
           if (novoItem < 0) itemConfigSelecionado = TOTAL_ITENS_CONFIG - 1;
           else if (novoItem >= TOTAL_ITENS_CONFIG) itemConfigSelecionado = 0;
           else itemConfigSelecionado = novoItem;
         } else {
-          // Alteração de Valor
           switch (itemConfigSelecionado) {
-            case 0: // Temp Desejada (40°C a 90°C)
+            case 0:
               cfgvar.TEMP_DESEJADA += encMove * 0.5;
-              if (cfgvar.TEMP_DESEJADA < 40) cfgvar.TEMP_DESEJADA = 40;
-              if (cfgvar.TEMP_DESEJADA > 90) cfgvar.TEMP_DESEJADA = 90;
+              if (cfgvar.TEMP_DESEJADA < 40.0) cfgvar.TEMP_DESEJADA = 40.0;
+              if (cfgvar.TEMP_DESEJADA > 90.0) cfgvar.TEMP_DESEJADA = 90.0;
               break;
-            case 1: // Umidade Ativação (5% a 90%)
+            case 1:
               cfgvar.HUMIDADE_DE_ATIVACAO += encMove * 0.5;
-              if (cfgvar.HUMIDADE_DE_ATIVACAO < 5) cfgvar.HUMIDADE_DE_ATIVACAO = 5;
-              if (cfgvar.HUMIDADE_DE_ATIVACAO > 90) cfgvar.HUMIDADE_DE_ATIVACAO = 90;
+              if (cfgvar.HUMIDADE_DE_ATIVACAO < 5.0) cfgvar.HUMIDADE_DE_ATIVACAO = 5.0;
+              if (cfgvar.HUMIDADE_DE_ATIVACAO > 90.0) cfgvar.HUMIDADE_DE_ATIVACAO = 90.0;
               break;
-            case 2: // Histerese (1°C a 10°C)
+            case 2:
               {
-                int hist = cfgvar.HISTERESE + encMove;
+                int hist = (int)cfgvar.HISTERESE + encMove;
                 if (hist < 1) hist = 1;
                 if (hist > 10) hist = 10;
                 cfgvar.HISTERESE = hist;
               }
               break;
-            case 3: // Unidade de Temp (Celsius / Fahrenheit)
+            case 3:
               cfgvar.IS_CELCIUS = !cfgvar.IS_CELCIUS;
               break;
-            case 4: // Ir para tela de calibração NTC
-              telaAtual = TELA_AJUSTE_TEMP;
-              modoEdicaoConfig = false;
+            case 4:
+              {
+                int32_t novoDebounce = (int32_t)cfgvar.DEBOUNCER_TIME + (encMove * 5);
+                if (novoDebounce < 5) novoDebounce = 5;
+                if (novoDebounce > 500) novoDebounce = 500;
+                cfgvar.DEBOUNCER_TIME = novoDebounce;
+              }
               break;
           }
         }
@@ -317,12 +332,28 @@ void processarInputs() {
 
     case TELA_AJUSTE_TEMP:
       if (btn1) {
-        telaAtual = TELA_CONFIGURACAO;
+        telaAtual = TELA_CONFIGURACAO;  // Voltar sem alterar modo
+      } else if (btnEnc) {
+        // Alterna o parâmetro do NTC focado: 0 -> R_REF, 1 -> BETA, 2 -> NTC_NOMINAL
+        focadoTempo = (focadoTempo + 1) % 3;
+      } else if (encMove != 0) {
+        if (focadoTempo == 0) {  // R_REF (Ajuste de 10 em 10 Ohms)
+          cfgvar.R_REF += encMove * 10.0;
+          if (cfgvar.R_REF < 1000.0) cfgvar.R_REF = 1000.0;
+          if (cfgvar.R_REF > 100000.0) cfgvar.R_REF = 100000.0;
+        } else if (focadoTempo == 1) {  // BETA (Ajuste de 10 em 10)
+          cfgvar.BETA += encMove * 10.0;
+          if (cfgvar.BETA < 2000.0) cfgvar.BETA = 2000.0;
+          if (cfgvar.BETA > 6000.0) cfgvar.BETA = 6000.0;
+        } else if (focadoTempo == 2) {  // NTC25 (Ajuste de 100 em 100 Ohms)
+          cfgvar.NTC_NOMINAL += encMove * 100.0;
+          if (cfgvar.NTC_NOMINAL < 1000.0) cfgvar.NTC_NOMINAL = 1000.0;
+          if (cfgvar.NTC_NOMINAL > 100000.0) cfgvar.NTC_NOMINAL = 100000.0;
+        }
       }
       break;
   }
 }
-
 
 void mostrarTudo() {
   display.clearDisplay();
@@ -330,20 +361,30 @@ void mostrarTudo() {
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
 
-  bool piscar = (millis() / 300) % 2 == 0; // Estado de pisca a ~3.3 Hz
+  bool piscar = (millis() / 300) % 2 == 0;  // Estado de pisca a ~3.3 Hz
 
   switch (telaAtual) {
     case TELA_INICIAL:
       display.println(F("--- MONIT. CAMARA ---"));
-      display.print(F("Ambiente : ")); display.print(TEMP_AMBIENTE, 1); display.println(F(" C"));
-      display.print(F("Aquecedor: ")); display.print(TEMP_AQUECEDOR, 1); display.println(F(" C"));
-      display.print(F("AHT10    : ")); display.print(TEMP_AH10, 1); display.println(F(" C"));
-      display.print(F("Umidade  : ")); display.print(HUMIDADE_ATUAL, 1); display.println(F(" %"));
-      display.print(F("Status Aq: ")); display.println(AQUECEDOR_ATIVADO ? F("LIGADO") : F("DESLIGADO"));
+      display.print(F("Ambiente : "));
+      display.print(TEMP_AMBIENTE, 1);
+      display.println(F(" C"));
+      display.print(F("Aquecedor: "));
+      display.print(TEMP_AQUECEDOR, 1);
+      display.println(F(" C"));
+      display.print(F("AHT10    : "));
+      display.print(TEMP_AH10, 1);
+      display.println(F(" C"));
+      display.print(F("Umidade  : "));
+      display.print(HUMIDADE_ATUAL, 1);
+      display.println(F(" %"));
+      display.print(F("Status Aq: "));
+      display.println(AQUECEDOR_ATIVADO ? F("LIGADO") : F("DESLIGADO"));
 
       if (!listaErros.empty()) {
         display.setCursor(0, 55);
-        display.print(F("ERR: ")); display.print(listaErros[0]);
+        display.print(F("ERR: "));
+        display.print(listaErros[0]);
       } else {
         display.setCursor(0, 55);
         display.print(F("B1:Tempo  B2:Configs"));
@@ -395,18 +436,28 @@ void mostrarTudo() {
         display.print(F("EM EXECUCAO "));
         if (PAUSE) display.println(F("[PAUSADO]"));
         else display.println(AQUECEDOR_ATIVADO ? F("[AQUECENDO]") : F("[AGUARDANDO]"));
-        
+
         display.setTextSize(2);
         display.setCursor(16, 16);
-        if (h < 10) display.print(F("0")); display.print(h); display.print(F(":"));
-        if (m < 10) display.print(F("0")); display.print(m); display.print(F(":"));
-        if (s < 10) display.print(F("0")); display.print(s);
+        if (h < 10) display.print(F("0"));
+        display.print(h);
+        display.print(F(":"));
+        if (m < 10) display.print(F("0"));
+        display.print(m);
+        display.print(F(":"));
+        if (s < 10) display.print(F("0"));
+        display.print(s);
 
         display.setTextSize(1);
         display.setCursor(0, 38);
-        display.print(F("Amb:")); display.print(TEMP_AMBIENTE, 1);
-        display.print(F("C Aq:")); display.print(TEMP_AQUECEDOR, 1); display.println(F("C"));
-        display.print(F("Umidade: ")); display.print(HUMIDADE_ATUAL, 1); display.println(F("%"));
+        display.print(F("Amb:"));
+        display.print(TEMP_AMBIENTE, 1);
+        display.print(F("C Aq:"));
+        display.print(TEMP_AQUECEDOR, 1);
+        display.println(F("C"));
+        display.print(F("Umidade: "));
+        display.print(HUMIDADE_ATUAL, 1);
+        display.println(F("%"));
 
         display.setCursor(0, 55);
         display.print(F("B1:Parar  B2:Pausar"));
@@ -418,12 +469,22 @@ void mostrarTudo() {
       break;
 
     case TELA_AJUSTE_TEMP:
-      display.println(F("--- CALIBRACAO NTC ---"));
-      display.print(F("R_REF: ")); display.println(cfgvar.R_REF, 1);
-      display.print(F("BETA : ")); display.println(cfgvar.BETA, 1);
-      display.print(F("NTC25: ")); display.println(cfgvar.NTC_NOMINAL, 1);
+      display.println(F("-- CALIBRACAO NTC --"));
+
+      display.print(focadoTempo == 0 ? F("> ") : F("  "));
+      display.print(F("R_REF: "));
+      display.println(cfgvar.R_REF, 1);
+
+      display.print(focadoTempo == 1 ? F("> ") : F("  "));
+      display.print(F("BETA : "));
+      display.println(cfgvar.BETA, 1);
+
+      display.print(focadoTempo == 2 ? F("> ") : F("  "));
+      display.print(F("NTC25: "));
+      display.println(cfgvar.NTC_NOMINAL, 1);
+
       display.setCursor(0, 55);
-      display.print(F("B1:Voltar"));
+      display.print(F("B1:Voltar BE:Campo"));
       break;
   }
 
@@ -432,10 +493,10 @@ void mostrarTudo() {
 
 void desenharTelaConfiguracao() {
   display.println(F("--- CONFIGURACOES ---"));
-  
+
   // Exibe 3 itens simultâneos no carrossel vertical
   for (int i = 0; i < 3; i++) {
-    int idx = itemConfigSelecionado + i - 1; // item anterior, atual e próximo
+    int idx = itemConfigSelecionado + i - 1;  // item anterior, atual e próximo
     if (idx < 0) idx += TOTAL_ITENS_CONFIG;
     if (idx >= TOTAL_ITENS_CONFIG) idx -= TOTAL_ITENS_CONFIG;
 
@@ -447,19 +508,28 @@ void desenharTelaConfiguracao() {
 
     switch (idx) {
       case 0:
-        display.print(F("Temp Desej: ")); display.print(cfgvar.TEMP_DESEJADA, 1); display.print(F("C"));
+        display.print(F("Temp Desej: "));
+        display.print(cfgvar.TEMP_DESEJADA, 1);
+        display.print(F("C"));
         break;
       case 1:
-        display.print(F("Umid Ativ : ")); display.print(cfgvar.HUMIDADE_DE_ATIVACAO, 1); display.print(F("%"));
+        display.print(F("Umid Ativ : "));
+        display.print(cfgvar.HUMIDADE_DE_ATIVACAO, 1);
+        display.print(F("%"));
         break;
       case 2:
-        display.print(F("Histerese : ")); display.print(cfgvar.HISTERESE); display.print(F("C"));
+        display.print(F("Histerese : "));
+        display.print(cfgvar.HISTERESE);
+        display.print(F("C"));
         break;
       case 3:
-        display.print(F("Unidade   : ")); display.print(cfgvar.IS_CELCIUS ? F("Celsius") : F("Fahrenheit"));
+        display.print(F("Unidade   : "));
+        display.print(cfgvar.IS_CELCIUS ? F("Celsius") : F("Fahrenheit"));
         break;
       case 4:
-        display.print(F("Debounce  : ")); display.print(cfgvar.DEBOUNCER_TIME); display.print(F(" ms"));
+        display.print(F("Debounce  : "));
+        display.print(cfgvar.DEBOUNCER_TIME);
+        display.print(F(" ms"));
         break;
       case 5:
         display.print(F("Calibrar NTC..."));
@@ -582,7 +652,14 @@ void loop() {
     aht.getEvent(&umidade, &temp);
     TEMP_AH10 = temp.temperature;
     HUMIDADE_ATUAL = umidade.relative_humidity;
-    Serial.print("temp A:" );Serial.print(TEMP_AMBIENTE,2);Serial.print(" Temp AQ:");Serial.print(TEMP_AQUECEDOR,2);Serial.print(" Hum:");Serial.print(HUMIDADE_ATUAL,2);Serial.print(" ah10:");Serial.println(TEMP_AH10,2);
+    Serial.print("temp A:");
+    Serial.print(TEMP_AMBIENTE, 2);
+    Serial.print(" Temp AQ:");
+    Serial.print(TEMP_AQUECEDOR, 2);
+    Serial.print(" Hum:");
+    Serial.print(HUMIDADE_ATUAL, 2);
+    Serial.print(" ah10:");
+    Serial.println(TEMP_AH10, 2);
     // Lógica de aquecimento ligada apenas na contagem sem pausa
     if (telaAtual == TELA_TEMPORIZADOR_CONTANDO && !PAUSE) {
       if (TEMP_AQUECEDOR < (cfgvar.TEMP_DESEJADA - cfgvar.HISTERESE) || HUMIDADE_ATUAL > cfgvar.HUMIDADE_DE_ATIVACAO) {
@@ -593,7 +670,6 @@ void loop() {
         digitalWrite(AQUECEDOR, LOW);
       }
     }
-
   }
 
   // 4. Renderização do OLED (A cada 80ms = ~12 FPS)
