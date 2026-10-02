@@ -142,6 +142,11 @@ volatile bool flagBotao2 = false;
 
 volatile uint32_t ultimoTempoInterrupcaoBT = 0;
 
+// Variáveis de diagnóstico de falha do aquecedor
+unsigned long tempoInicioAquecedorMs = 0;
+float tempInicialAquecedor = 0.0;
+bool monitorandoAquecimento = false;
+
 void gerenciarAquecimento() {
   // 1. Verificação de disparo automático por umidade alta
   if (!aquecimentoAtivo) {
@@ -160,15 +165,48 @@ void gerenciarAquecimento() {
   // 2. Controle do relé com base na temperatura desejada e histerese
   if (aquecimentoAtivo && !PAUSE) {
     if (TEMP_AQUECEDOR < (cfgvar.TEMP_DESEJADA - cfgvar.HISTERESE)) {
-      AQUECEDOR_ATIVADO = true;
-      digitalWrite(AQUECEDOR, HIGH);
+      if (!AQUECEDOR_ATIVADO) {
+        AQUECEDOR_ATIVADO = true;
+        digitalWrite(AQUECEDOR, HIGH);
+        
+        // Inicia contagem do diagnóstico de falha do aquecedor
+        tempoInicioAquecedorMs = millis();
+        tempInicialAquecedor = TEMP_AQUECEDOR;
+        monitorandoAquecimento = true;
+      }
     } else if (TEMP_AQUECEDOR > (cfgvar.TEMP_DESEJADA + cfgvar.HISTERESE)) {
       AQUECEDOR_ATIVADO = false;
       digitalWrite(AQUECEDOR, LOW);
+      monitorandoAquecimento = false; // Desliga o monitoramento quando atinge a temperatura
     }
+
+    // 3. Validação de Falha: Relé ligado > 30s sem subir ao menos 5°C
+    if (AQUECEDOR_ATIVADO && monitorandoAquecimento) {
+      if (millis() - tempoInicioAquecedorMs >= 30000UL) { // 30 segundos
+        if ((TEMP_AQUECEDOR - tempInicialAquecedor) < 5.0) {
+          // Desativa o aquecedor e desliga o ciclo por segurança
+          AQUECEDOR_ATIVADO = false;
+          digitalWrite(AQUECEDOR, LOW);
+          aquecimentoAtivo = false;
+          monitorandoAquecimento = false;
+          ultimaDesativacaoMs = millis();
+
+          // Registra o erro na lista
+          listaErros.push_back(F("Falha Aquecedor"));
+          Serial.println(F("ERRO: Aquecedor nao elevou 5C em 30s!"));
+        } else {
+          // Se subiu 5°C ou mais, renova a janela de tempo e a temperatura base para continuar monitorando
+          tempoInicioAquecedorMs = millis();
+          tempInicialAquecedor = TEMP_AQUECEDOR;
+        }
+      }
+    }
+
   } else {
+    // Garantia de desligamento caso o ciclo pare ou seja pausado
     AQUECEDOR_ATIVADO = false;
     digitalWrite(AQUECEDOR, LOW);
+    monitorandoAquecimento = false;
   }
 }
 
@@ -423,9 +461,9 @@ void mostrarTudo() {
   switch (telaAtual) {
     case TELA_INICIAL:
       display.println(F("--- MONIT. CAMARA ---"));
-      display.print(F("Ambiente : ")); display.print(TEMP_AMBIENTE, 1); display.println(F(" C"));
-      display.print(F("Aquecedor: ")); display.print(TEMP_AQUECEDOR, 1); display.println(F(" C"));
-      display.print(F("Umidade  : ")); display.print(HUMIDADE_ATUAL, 1); display.println(F(" %"));
+      display.print(F("Amb: ")); display.print(TEMP_AMBIENTE, 1);display.print("|");display.print(TEMP_AH10, 1); display.println(F("C"));
+      display.print(F("Aq: ")); display.print(TEMP_AQUECEDOR, 1); display.print(F("C"));display.print("| ");
+      display.print(F("Um: ")); display.print(HUMIDADE_ATUAL, 1); display.println(F("%"));
       
       display.print(F("Ciclo Aq : ")); 
       if (aquecimentoAtivo) {
@@ -434,7 +472,7 @@ void mostrarTudo() {
         uint32_t s = tempoTotalSegundos % 60;
         if (h < 10) display.print(F("0")); display.print(h); display.print(F(":"));
         if (m < 10) display.print(F("0")); display.print(m); display.print(F(":"));
-        if (s < 10) display.print(F("0")); display.print(s);
+        if (s < 10) display.print(F("0")); display.println(s);
       } else {
         display.println(F("INATIVO"));
       }
