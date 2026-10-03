@@ -146,6 +146,7 @@ volatile uint32_t ultimoTempoInterrupcaoBT = 0;
 unsigned long tempoInicioAquecedorMs = 0;
 float tempInicialAquecedor = 0.0;
 bool monitorandoAquecimento = false;
+bool testeInicialConcluido = false;
 
 void gerenciarAquecimento() {
   // 1. Verificação de disparo automático por umidade alta
@@ -155,6 +156,7 @@ void gerenciarAquecimento() {
     
     if (HUMIDADE_ATUAL > cfgvar.HUMIDADE_DE_ATIVACAO && tempoPassado) {
       aquecimentoAtivo = true;
+      testeInicialConcluido = false; // Reseta o teste para o novo ciclo
       tempoTotalSegundos = ((uint32_t)cfgvar.TEMPORIZADOR_HORAS * 3600) +
                            ((uint32_t)cfgvar.TEMPORIZADOR_MINUTOS * 60) +
                            cfgvar.TEMPORIZADOR_SEGUNDOS;
@@ -169,35 +171,38 @@ void gerenciarAquecimento() {
         AQUECEDOR_ATIVADO = true;
         digitalWrite(AQUECEDOR, HIGH);
         
-        // Inicia contagem do diagnóstico de falha do aquecedor
-        tempoInicioAquecedorMs = millis();
-        tempInicialAquecedor = TEMP_AQUECEDOR;
-        monitorandoAquecimento = true;
+        // Inicia o monitoramento SOMENTE se o teste do início do ciclo ainda não foi feito
+        if (!testeInicialConcluido) {
+          tempoInicioAquecedorMs = millis();
+          tempInicialAquecedor = TEMP_AQUECEDOR;
+          monitorandoAquecimento = true;
+        }
       }
     } else if (TEMP_AQUECEDOR > (cfgvar.TEMP_DESEJADA + cfgvar.HISTERESE)) {
       AQUECEDOR_ATIVADO = false;
       digitalWrite(AQUECEDOR, LOW);
-      monitorandoAquecimento = false; // Desliga o monitoramento quando atinge a temperatura
+      monitorandoAquecimento = false;
     }
 
-    // 3. Validação de Falha: Relé ligado > 30s sem subir ao menos 5°C
-    if (AQUECEDOR_ATIVADO && monitorandoAquecimento) {
-      if (millis() - tempoInicioAquecedorMs >= 30000UL) { // 30 segundos
+    // 3. Validação de Falha: Executada EXCLUSIVAMENTE no primeiro arranque do ciclo
+    if (AQUECEDOR_ATIVADO && monitorandoAquecimento && !testeInicialConcluido) {
+      if (millis() - tempoInicioAquecedorMs >= 30000UL) { // Passaram 30 segundos
         if ((TEMP_AQUECEDOR - tempInicialAquecedor) < 5.0) {
-          // Desativa o aquecedor e desliga o ciclo por segurança
+          // Falha de aquecimento na partida
           AQUECEDOR_ATIVADO = false;
           digitalWrite(AQUECEDOR, LOW);
           aquecimentoAtivo = false;
           monitorandoAquecimento = false;
+          testeInicialConcluido = true;
           ultimaDesativacaoMs = millis();
 
-          // Registra o erro na lista
           listaErros.push_back(F("Falha Aquecedor"));
-          Serial.println(F("ERRO: Aquecedor nao elevou 5C em 30s!"));
+          Serial.println(F("ERRO: Aquecedor nao elevou 5C nos primeiros 30s!"));
         } else {
-          // Se subiu 5°C ou mais, renova a janela de tempo e a temperatura base para continuar monitorando
-          tempoInicioAquecedorMs = millis();
-          tempInicialAquecedor = TEMP_AQUECEDOR;
+          // Teste bem-sucedido: marca como concluído para que as religadas de histerese NUNCA mais monitorem
+          monitorandoAquecimento = false;
+          testeInicialConcluido = true;
+          Serial.println(F("OK: Teste inicial do aquecedor aprovado!"));
         }
       }
     }
@@ -306,6 +311,7 @@ void processarInputs() {
         if (!aquecimentoAtivo) {
           aquecimentoAtivo = true;
           PAUSE = false;
+          testeInicialConcluido = false;
           tempoTotalSegundos = ((uint32_t)cfgvar.TEMPORIZADOR_HORAS * 3600) +
                                ((uint32_t)cfgvar.TEMPORIZADOR_MINUTOS * 60) +
                                cfgvar.TEMPORIZADOR_SEGUNDOS;
@@ -325,6 +331,7 @@ void processarInputs() {
         if (tempoTotalSegundos > 0) {
           PAUSE = false;
           aquecimentoAtivo = true;
+          testeInicialConcluido = false;
           ultimoSegundoTimer = millis();
           telaAtual = TELA_TEMPORIZADOR_CONTANDO;
         }
@@ -758,15 +765,6 @@ void loop() {
     Serial.print(" ah10:");
     Serial.println(TEMP_AH10, 2);
     // Lógica de aquecimento ligada apenas na contagem sem pausa
-    if (telaAtual == TELA_TEMPORIZADOR_CONTANDO && !PAUSE) {
-      if (TEMP_AQUECEDOR < (cfgvar.TEMP_DESEJADA - cfgvar.HISTERESE) || HUMIDADE_ATUAL > cfgvar.HUMIDADE_DE_ATIVACAO) {
-        AQUECEDOR_ATIVADO = true;
-        digitalWrite(AQUECEDOR, HIGH);
-      } else if (TEMP_AQUECEDOR > (cfgvar.TEMP_DESEJADA + cfgvar.HISTERESE)) {
-        AQUECEDOR_ATIVADO = false;
-        digitalWrite(AQUECEDOR, LOW);
-      }
-    }
   }
 
   // 5. Renderização do display OLED
